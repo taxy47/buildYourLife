@@ -21,15 +21,22 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBars
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material3.Button
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Tab
 import androidx.compose.material3.TabRow
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextField
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -104,6 +111,63 @@ fun ScrollingContent() {
 }
 
 @Composable
+fun TaskListScreen() {
+    // 1️⃣ 状态：保存任务列表
+    val tasks = remember { mutableStateListOf("Write report", "Check email") }
+    var newTaskText by remember { mutableStateOf("") }
+    // TODO:从网络，文件，数据库 api 接口请求过来，本机的 I/O
+
+    // 点击 button 后再弹出来，其实我脑海中有使用体验和想法
+    TextField(
+        value = newTaskText,
+        onValueChange = { newTaskText = it },
+        placeholder = { Text("输入任务内容") },
+        modifier = Modifier.fillMaxWidth().padding(8.dp)
+    )
+
+    // 2️⃣ 添加任务按钮
+    Button(onClick = {
+        if (newTaskText.isNotBlank()) {
+            tasks.add(newTaskText)
+            newTaskText = "" // 清空输入框
+        }
+    }) {
+        Text("+")
+    }
+
+    Column(modifier = Modifier.fillMaxSize()) {
+
+        // 3️⃣ 显示任务列表
+        LazyColumn(modifier = Modifier.fillMaxSize()) {
+//            items(tasks) { task ->
+//                Text(
+//                    text = task,
+//                    modifier = Modifier
+//                        .fillMaxWidth()
+//                        .padding(8.dp)
+//                )
+//            }
+
+            items(tasks) { task->
+                Row(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .padding(4.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    Text(task)
+                    IconButton(onClick = { tasks.remove(task) }) {
+                        Icon(Icons.Default.Delete, contentDescription = "删除")
+                    }
+                }
+
+            }
+        }
+    }
+}
+
+
+@Composable
 fun TabScreen(
     selectedTab: Int,
     onTabSelected: (Int) -> Unit
@@ -137,8 +201,11 @@ fun TabScreen(
 fun TaskContent() {
 //    TODO("Not yet implemented")
 //    Text("TaskContent")
-    Text("TaskContent")
+//    Text("TaskContent")
+    TaskListScreen()
 }
+
+
 
 @Composable
 fun CalendarContent() {
