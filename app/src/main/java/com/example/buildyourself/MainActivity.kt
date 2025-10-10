@@ -14,8 +14,11 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.material3.Button
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Tab
+import androidx.compose.material3.TabRow
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -34,19 +37,77 @@ class MainActivity : ComponentActivity() {
         enableEdgeToEdge()
         setContent {
             BuildYourselfTheme {
-                Scaffold(modifier = Modifier.fillMaxSize()) { innerPadding ->
-
-                        Greeting(
-                            name = "Android",
-                            modifier = Modifier.padding(innerPadding)
-                        )
-                        MyApp()
-
+                Scaffold(
+                    modifier = Modifier.fillMaxSize(),
+                    bottomBar = { BottomBar() }
+                ) { innerPadding ->
+                    Box(modifier = Modifier.padding(innerPadding)) {
+                        TabScreen()
+                    }
+                    val x = innerPadding
+//                    InnerContent()
                 }
             }
         }
     }
 }
+
+@Composable
+fun InnerContent() {
+    ScrollingContent()
+}
+
+@Composable
+fun ScrollingContent() {
+    LazyColumn(modifier = Modifier.fillMaxSize()) {
+        items(50) { index ->
+            Text(
+                text = "Item $index",
+                modifier = Modifier
+                    .padding(8.dp)
+                    .fillMaxWidth()
+            )
+        }
+    }
+}
+@Composable
+fun TabScreen() {
+    var selectedTab by remember { mutableIntStateOf(0) }
+    val tabTitles = listOf("DayWork", "Calendar", "TaskR&D")
+
+    Column(modifier = Modifier.fillMaxSize()) {
+        TabRow(selectedTabIndex = selectedTab) {
+            tabTitles.forEachIndexed { index, title ->
+                Tab(
+                    selected = selectedTab == index,
+                    onClick = { selectedTab = index },
+                    text = { Text(title) }
+                )
+            }
+        }
+
+        // 根据 selectedTab 显示不同内容
+        when (selectedTab) {
+            0 -> ScrollingContent() // DayWork
+            1 -> CalendarContent()  // Calendar
+            2 -> TaskContent()      // TaskR&D
+        }
+    }
+}
+
+@Composable
+fun TaskContent() {
+//    TODO("Not yet implemented")
+//    Text("TaskContent")
+    Text("TaskContent")
+}
+
+@Composable
+fun CalendarContent() {
+//    TODO("Not yet implemented")
+    Text("CalendarContent")
+}
+
 
 @Composable
 fun BottomBar() {
@@ -63,13 +124,14 @@ fun BottomBar() {
     }
 }
 
+
 @Composable
 fun MyApp() {
 
     Column ( modifier = Modifier
         .fillMaxSize()
     ) {
-        Box() {
+        Box {
             Text(
                 text = "Taxy is Here",
                 modifier = Modifier
@@ -91,6 +153,8 @@ fun MyApp() {
         }
     }
 }
+
+
 
 @Composable
 fun BadCounter() {
