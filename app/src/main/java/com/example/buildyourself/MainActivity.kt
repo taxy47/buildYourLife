@@ -1,9 +1,13 @@
 package com.example.buildyourself
 
+import android.content.Context
+import android.content.SharedPreferences
 import android.os.Bundle
 import androidx.activity.ComponentActivity
+import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.background
 import androidx.compose.foundation.gestures.detectDragGestures
@@ -33,25 +37,40 @@ import androidx.compose.material3.TabRow
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextField
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.scale
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
+import androidx.datastore.core.DataStore
+import androidx.datastore.preferences.core.Preferences
+import androidx.datastore.preferences.core.edit
+import androidx.datastore.preferences.core.stringPreferencesKey
+import androidx.datastore.preferences.core.stringSetPreferencesKey
+import androidx.datastore.preferences.preferencesDataStore
 import com.example.buildyourself.ui.theme.BuildYourselfTheme
-import kotlinx.coroutines.selects.select
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.runBlocking
 import kotlin.math.roundToInt
 import kotlin.random.Random
+
+
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -68,12 +87,11 @@ class MainActivity : ComponentActivity() {
                     ) }
                 ) { innerPadding ->
                     Box(modifier = Modifier.padding(innerPadding)) {
-
+                        TabScreen(
+                            selectedTab = selectedTab,
+                            onTabSelected = { selectedTab = it }
+                        )
                     }
-                    TabScreen(
-                        selectedTab = selectedTab,
-                        onTabSelected = { selectedTab = it }
-                    )
                 }
             }
         }
@@ -104,50 +122,78 @@ fun ScrollingContent() {
                 text = "Item $index",
                 modifier = Modifier
                     .padding(8.dp)
-                    .fillMaxWidth()
+                    .fillMaxWidth(),
+//                textAlign = TextAlign.Center
+//                contentAlignment = Alignment.Center
             )
         }
     }
 }
 
 @Composable
-fun TaskListScreen() {
+fun TaskListScreen(context: Context) {
     // 1️⃣ 状态：保存任务列表
-    val tasks = remember { mutableStateListOf("Write report", "Check email") }
+
+//    持久化问题，tab 切换都会出现丢失状态，要不应该放到全局的，这里是局部状态和对应 UI 组件
+//    val tasks = remember { mutableStateListOf("Write report", "Check email") }
     var newTaskText by remember { mutableStateOf("") }
     // TODO:从网络，文件，数据库 api 接口请求过来，本机的 I/O
+
+
+    val scope = rememberCoroutineScope()
+    // 1️⃣ 从 DataStore 读取任务列表，返回 Flow 转 Compose State
+    val tasksFlow = context.dataStore.data.map { preferences ->
+        preferences[TASKS_KEY]?.toList() ?: emptyList()
+    }
+    val tasksState by tasksFlow.collectAsState(initial = emptyList())
+    val tasks = remember { mutableStateListOf<String>() }
+
+    // 每次 Flow 更新，把最新任务同步到 tasks mutableStateList
+    LaunchedEffect(tasksState) {
+        tasks.clear()
+        tasks.addAll(tasksState)
+    }
 
     // 点击 button 后再弹出来，其实我脑海中有使用体验和想法
     TextField(
         value = newTaskText,
         onValueChange = { newTaskText = it },
         placeholder = { Text("输入任务内容") },
-        modifier = Modifier.fillMaxWidth().padding(8.dp)
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(8.dp)
     )
 
     // 2️⃣ 添加任务按钮
     Button(onClick = {
         if (newTaskText.isNotBlank()) {
             tasks.add(newTaskText)
+            // 异步保存到 DataStore
+            scope.launch {
+                context.dataStore.edit { preferences ->
+                    preferences[TASKS_KEY] = tasks.toSet()
+                }
+            }
             newTaskText = "" // 清空输入框
         }
     }) {
         Text("+")
     }
 
-    Column(modifier = Modifier.fillMaxSize()) {
+    // 系统 api, 选择文件，windows desktop 中也常见
+    val launcher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.OpenDocument(),
+        onResult = { uri ->
+            // 用户选择的文件 Uri
+        }
+    )
+    Button(onClick = { launcher.launch(arrayOf("*/*")) }) {
+        Text("选择文件")
+    }
 
+    Column(modifier = Modifier.fillMaxSize()) {
         // 3️⃣ 显示任务列表
         LazyColumn(modifier = Modifier.fillMaxSize()) {
-//            items(tasks) { task ->
-//                Text(
-//                    text = task,
-//                    modifier = Modifier
-//                        .fillMaxWidth()
-//                        .padding(8.dp)
-//                )
-//            }
-
             items(tasks) { task->
                 Row(
                     modifier = Modifier
@@ -156,7 +202,14 @@ fun TaskListScreen() {
                     horizontalArrangement = Arrangement.SpaceBetween
                 ) {
                     Text(task)
-                    IconButton(onClick = { tasks.remove(task) }) {
+                    IconButton(onClick = {
+                        tasks.remove(task)
+                        scope.launch {
+                            context.dataStore.edit { preferences ->
+                                preferences[TASKS_KEY] = tasks.toSet()
+                            }
+                        }
+                    }) {
                         Icon(Icons.Default.Delete, contentDescription = "删除")
                     }
                 }
@@ -202,7 +255,7 @@ fun TaskContent() {
 //    TODO("Not yet implemented")
 //    Text("TaskContent")
 //    Text("TaskContent")
-    TaskListScreen()
+    TaskListScreen(context = LocalContext.current)
 }
 
 
@@ -341,7 +394,8 @@ fun BadCounter() {
 fun Counter() {
     var count by remember { mutableIntStateOf(0) }
     Button(onClick = { count++ },
-            modifier = Modifier.size(100.dp, 50.dp)
+            modifier = Modifier
+                .size(100.dp, 50.dp)
                 .offset(100.dp, 100.dp)
         ) {
         Text("Count: $count")
@@ -363,3 +417,40 @@ fun GreetingPreview() {
         Greeting("Android")
     }
 }
+
+
+// 内容太多应该划分新的文件夹了
+// 保存数据
+//fun saveUserData(context: Context, username: String, age: Int) {
+//    val sharedPreferences = context.getSharedPreferences("user_prefs", Context.MODE_PRIVATE)
+//    with(sharedPreferences.edit()) {
+//        putString("username", username)
+//        putInt("age", age)
+//        apply() // 异步提交
+//    }
+//}
+//
+//// 读取数据
+//fun getUserData(context: Context): Pair<String?, Int> {
+//    val sharedPreferences = context.getSharedPreferences("user_prefs", Context.MODE_PRIVATE)
+//    val username = sharedPreferences.getString("username", null)
+//    val age = sharedPreferences.getInt("age", 0)
+//    return Pair(username, age)
+//}
+
+
+val Context.dataStore by preferencesDataStore("tasks")
+
+val TASKS_KEY = stringSetPreferencesKey("tasks")
+
+fun saveTasksDataStore(context: Context, tasks: List<String>) = runBlocking {
+    context.dataStore.edit { preferences ->
+        preferences[TASKS_KEY] = tasks.toSet()
+    }
+}
+
+fun getTasksDataStore(context: Context): List<String> = runBlocking {
+    val preferences = context.dataStore.data.first()
+    preferences[TASKS_KEY]?.toList() ?: emptyList()
+}
+
