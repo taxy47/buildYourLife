@@ -1,7 +1,7 @@
 package com.example.buildyourself
 
 import android.content.Context
-import android.content.SharedPreferences
+//import android.content.SharedPreferences
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -56,10 +56,10 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
-import androidx.datastore.core.DataStore
-import androidx.datastore.preferences.core.Preferences
+//import androidx.datastore.core.DataStore
+//import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.edit
-import androidx.datastore.preferences.core.stringPreferencesKey
+//import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.core.stringSetPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
 import com.example.buildyourself.ui.theme.BuildYourselfTheme
@@ -71,7 +71,6 @@ import kotlin.math.roundToInt
 import kotlin.random.Random
 
 
-
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -81,10 +80,12 @@ class MainActivity : ComponentActivity() {
                 var selectedTab by remember { mutableIntStateOf(0) }
                 Scaffold(
                     modifier = Modifier.fillMaxSize(),
-                    bottomBar = { BottomBar(
-                        selectedTab = selectedTab,
-                        onTabSelected = { selectedTab = it}
-                    ) }
+                    bottomBar = {
+                        BottomBar(
+                            selectedTab = selectedTab,
+                            onTabSelected = { selectedTab = it }
+                        )
+                    }
                 ) { innerPadding ->
                     Box(modifier = Modifier.padding(innerPadding)) {
                         TabScreen(
@@ -133,7 +134,6 @@ fun ScrollingContent() {
 @Composable
 fun TaskListScreen(context: Context) {
     // 1️⃣ 状态：保存任务列表
-
 //    持久化问题，tab 切换都会出现丢失状态，要不应该放到全局的，这里是局部状态和对应 UI 组件
 //    val tasks = remember { mutableStateListOf("Write report", "Check email") }
     var newTaskText by remember { mutableStateOf("") }
@@ -194,7 +194,7 @@ fun TaskListScreen(context: Context) {
     Column(modifier = Modifier.fillMaxSize()) {
         // 3️⃣ 显示任务列表
         LazyColumn(modifier = Modifier.fillMaxSize()) {
-            items(tasks) { task->
+            items(tasks) { task ->
                 Row(
                     modifier = Modifier
                         .fillMaxSize()
@@ -219,6 +219,8 @@ fun TaskListScreen(context: Context) {
     }
 }
 
+val Context.dataStore by preferencesDataStore("tasks")
+val TASKS_KEY = stringSetPreferencesKey("tasks")
 
 @Composable
 fun TabScreen(
@@ -253,12 +255,8 @@ fun TabScreen(
 @Composable
 fun TaskContent() {
 //    TODO("Not yet implemented")
-//    Text("TaskContent")
-//    Text("TaskContent")
     TaskListScreen(context = LocalContext.current)
 }
-
-
 
 @Composable
 fun CalendarContent() {
@@ -266,7 +264,6 @@ fun CalendarContent() {
     Text("CalendarContent")
     MultiGestureBox()
 }
-
 
 @Composable
 fun BottomBar(
@@ -418,39 +415,7 @@ fun GreetingPreview() {
     }
 }
 
-
-// 内容太多应该划分新的文件夹了
+// 内容太多应该划分新的文件夹了，项目架构和常见划分
 // 保存数据
-//fun saveUserData(context: Context, username: String, age: Int) {
-//    val sharedPreferences = context.getSharedPreferences("user_prefs", Context.MODE_PRIVATE)
-//    with(sharedPreferences.edit()) {
-//        putString("username", username)
-//        putInt("age", age)
-//        apply() // 异步提交
-//    }
-//}
-//
-//// 读取数据
-//fun getUserData(context: Context): Pair<String?, Int> {
-//    val sharedPreferences = context.getSharedPreferences("user_prefs", Context.MODE_PRIVATE)
-//    val username = sharedPreferences.getString("username", null)
-//    val age = sharedPreferences.getInt("age", 0)
-//    return Pair(username, age)
-//}
 
-
-val Context.dataStore by preferencesDataStore("tasks")
-
-val TASKS_KEY = stringSetPreferencesKey("tasks")
-
-fun saveTasksDataStore(context: Context, tasks: List<String>) = runBlocking {
-    context.dataStore.edit { preferences ->
-        preferences[TASKS_KEY] = tasks.toSet()
-    }
-}
-
-fun getTasksDataStore(context: Context): List<String> = runBlocking {
-    val preferences = context.dataStore.data.first()
-    preferences[TASKS_KEY]?.toList() ?: emptyList()
-}
 
