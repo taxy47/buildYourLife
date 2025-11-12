@@ -1,8 +1,13 @@
 package com.example.buildyourself
 
-import android.content.Context
 //import android.content.SharedPreferences
+//import androidx.datastore.core.DataStore
+//import androidx.datastore.preferences.core.Preferences
+//import androidx.datastore.preferences.core.stringPreferencesKey
+import android.content.Context
+import android.database.sqlite.SQLiteDatabase
 import android.os.Bundle
+import android.util.Log
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
@@ -10,6 +15,7 @@ import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Arrangement
@@ -38,6 +44,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextField
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.MutableState
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
@@ -56,17 +63,12 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
-//import androidx.datastore.core.DataStore
-//import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.edit
-//import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.core.stringSetPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
 import com.example.buildyourself.ui.theme.BuildYourselfTheme
-import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.runBlocking
 import kotlin.math.roundToInt
 import kotlin.random.Random
 
@@ -74,6 +76,34 @@ import kotlin.random.Random
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        println("MainActivity created")
+        Log.i("TAG", "TEST log");
+
+
+// test the access to database
+        val db = openOrCreateDatabase("mydatabase.db", MODE_PRIVATE, null)
+        db.execSQL("CREATE TABLE IF NOT EXISTS users (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT)")
+//        db.execSQL("INSERT INTO users (name) VALUES ('Alice')") // <-- 注意，这会每次都插入
+
+        val cursor =
+            db.rawQuery("SELECT COUNT(*) FROM users WHERE name = ?", arrayOf<String>("Alice"))
+        cursor.moveToFirst()
+        val count = cursor.getInt(0)
+        if (count == 0) {
+            db.execSQL("INSERT INTO users (name) VALUES (?)", arrayOf<Any>("Alice"))
+        }
+        cursor.close()
+        Log.i("Data db", "$count");
+        val myCursor = db.rawQuery("SELECT * FROM users WHERE name = 'Alice'", null);
+        while (myCursor.moveToNext()) {
+            val rowNumber = myCursor.columnCount;
+            val id = myCursor.getInt(0);
+            val name = myCursor.getInt(1);
+            Log.i("Database query", "$rowNumber is the $id , $name ");
+        }
+        myCursor.close();
+//        Log.
+//        Log.i("Tag", "test log");
         enableEdgeToEdge()
         setContent {
             BuildYourselfTheme {
@@ -97,7 +127,26 @@ class MainActivity : ComponentActivity() {
             }
         }
     }
+
+    override fun onDestroy() {
+        super.onDestroy();
+        println("Destroy activity");
+    }
 }
+
+//@Composable
+//fun loadUsers(db: SQLiteDatabase) {
+//    val cursor = db.rawQuery("SELECT * FROM users", null)
+//    val sb = StringBuilder()
+//    while (cursor.moveToNext()) {
+//        val id = cursor.getInt(0)
+//        val name = cursor.getString(1)
+//        sb.append(id).append(": ").append(name).append("\n")
+//    }
+//    cursor.close()
+//    val textView = null
+//    textView.setText(sb.toString())
+//}
 
 @Composable
 fun InnerContent() {
@@ -115,21 +164,97 @@ fun InnerContent() {
 //    ScrollingContent()
 }
 
+//@Composable
+//fun ScrollingContent() {
+//    LazyColumn(modifier = Modifier
+//        .fillMaxSize()
+//    ) {
+//        items(50) { index ->
+//            Text(
+//                text = "Item $index",
+//                modifier = Modifier
+//                    .padding(8.dp)
+//                    .fillMaxWidth()
+//                    .background(Color(0xFF64C8F))
+//                    .pointerInput(Unit) {
+//                        detectTapGestures (
+//                            onTap = {
+////                                text = "Clicked";
+//                            }
+//                        )
+//                    }
+//            )
+//        }
+//    }
+//}
+
+//数据持久化生命周期，这个数据在退出 app 后会消除；不同 tab 切换都会刷新掉，ScrollingContent 被销毁又重建了
+data class ItemData(
+    val id: Int,
+    var color: MutableState<Color> = mutableStateOf(Color(0xFF64C8FF))
+)
+
 @Composable
 fun ScrollingContent() {
+    val items = remember {
+        List(50) { index -> ItemData(id = index) }
+    }
+
     LazyColumn(modifier = Modifier.fillMaxSize()) {
-        items(50) { index ->
+        items(items, key = { it.id }) { item ->
             Text(
-                text = "Item $index",
+                text = "Item ${item.id}",
                 modifier = Modifier
                     .padding(8.dp)
-                    .fillMaxWidth(),
-//                textAlign = TextAlign.Center
-//                contentAlignment = Alignment.Center
+                    .fillMaxWidth()
+                    .background(item.color.value)
+                    .clickable {
+                        // 修改数据源里的颜色
+                        item.color.value = Color(
+                            Random.nextFloat(),
+                            Random.nextFloat(),
+                            Random.nextFloat(),
+                            1f
+                        )
+                    },
+                color = Color.White
             )
         }
     }
+
 }
+
+//@Composable
+//fun ScrollingContent() {
+//    LazyColumn(modifier = Modifier.fillMaxSize()) {
+//        items(50) { index ->
+//            // 为每个 item 创建独立颜色状态
+//            val backgroundColor = remember { mutableStateOf(Color(0xFF64C8FF)) }
+//
+//            Text(
+//                text = "Item $index",
+//                modifier = Modifier
+//                    .padding(8.dp)
+//                    .fillMaxWidth()
+//                    .background(backgroundColor.value)
+//                    .pointerInput(Unit) {
+//                        detectTapGestures(
+//                            onTap = {
+//                                // 点击时随机改变颜色
+//                                backgroundColor.value = Color(
+//                                    red = Random.nextFloat(),
+//                                    green = Random.nextFloat(),
+//                                    blue = Random.nextFloat(),
+//                                    alpha = 1f
+//                                )
+//                            }
+//                        )
+//                    },
+//                color = Color.White // 文字颜色
+//            )
+//        }
+//    }
+//}
 
 @Composable
 fun TaskListScreen(context: Context) {
